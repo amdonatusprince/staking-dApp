@@ -5,7 +5,8 @@ import {
   WalletConnectConnector,
 } from "@concordium/react-components";
 
-export const DEFAULT_CONTRACT_INDEX = BigInt(10381);
+export const DEFAULT_CONTRACT_INDEX = BigInt(10391);
+export const MODULE_REF = "2188a1b4715a1991b2c0d852cc0663df3cef62967e47feee305c1799ecd49671"
 export const MAX_CONTRACT_EXECUTION_ENERGY = BigInt(30000);
 
 export const CONTRACT_NAME = "concordium_staking";

@@ -138,7 +138,7 @@ pub struct ViewResult {
     admin: AccountAddress,
 
     /// Total amount of staked tokens.
-    total_staked: TokenAmountU64,
+    total_staked: u64,
 
     /// The Apr.
     apr: u64,
@@ -150,7 +150,7 @@ pub struct ViewResult {
     total_participants: u64,
 
     /// Track total rewards paid to users
-    total_rewards_paid: TokenAmountU64,
+    total_rewards_paid: u64,
 }
 
 /// Information about a stake.
@@ -1023,11 +1023,11 @@ fn contract_view(
     Ok(ViewResult {
         paused: state.paused,
         admin: state.admin,
-        total_staked: state.total_staked,
+        total_staked: state.total_staked.0,
         apr: state.apr,
         token_address: state.token_address,
         total_participants: state.total_participants,
-        total_rewards_paid: state.total_rewards_paid,
+        total_rewards_paid: state.total_rewards_paid.0,
     }) // Return success
 }
 

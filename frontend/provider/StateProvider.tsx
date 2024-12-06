@@ -8,6 +8,7 @@ import {
   deserializeReceiveReturnValue,
   Energy,
   EntrypointName,
+  ModuleReference,
   ReceiveName,
   SchemaVersion,
   serializeUpdateContractParameters,
@@ -16,6 +17,7 @@ import React from "react";
 import { createContext, useContext, useState } from "react";
 import toast from "react-hot-toast";
 import { useWallet } from "./WalletProvider";
+import { MODULE_REF } from "@/config";
 
 interface UnbondingInfo {
   amount: string;
@@ -108,7 +110,7 @@ const StateProvider = ({ children }: State) => {
       setLoadingUserStakeInfo(true);
       if (contract) {
         const contract_schema = await rpc?.getEmbeddedSchema(
-          contract?.sourceModule
+          ModuleReference.fromHexString(MODULE_REF)
         );
 
         const serializedParameter = serializeUpdateContractParameters(
@@ -163,9 +165,8 @@ const StateProvider = ({ children }: State) => {
     try {
       setLoadingProtocolStats(true);
       if (contract) {
-        console.log("Contract:", contract);
         const contract_schema = await rpc?.getEmbeddedSchema(
-          contract?.sourceModule
+          ModuleReference.fromHexString(MODULE_REF)
         );
 
         const result = await rpc?.invokeContract({
@@ -193,8 +194,15 @@ const StateProvider = ({ children }: State) => {
           SchemaVersion?.V1
         );
 
-        console.log("Contract state:", values);
-        setStakeState(values);
+        const transformedState = {
+          active_stakers: values.total_participants,
+          stakers_length: values.total_participants,
+          total_rewards_paid: values.total_rewards_paid.toString(),
+          total_staked: values.total_staked.toString(),
+        };
+
+        console.log("Contract state:", transformedState);
+        setStakeState(transformedState);
         setLoadingProtocolStats(false);
         toast.success("Protocol statistics fetched successfully");
       }
@@ -216,7 +224,7 @@ const StateProvider = ({ children }: State) => {
         return "0";
       }
       const contract_schema = await rpc?.getEmbeddedSchema(
-        contract?.sourceModule
+        ModuleReference.fromHexString(MODULE_REF)
       );
       const parameter = serializeUpdateContractParameters(
         ContractName.fromString(CONTRACT_NAME),
