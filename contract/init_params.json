@@ -1,0 +1,9 @@
+{
+    "admin": "3BzH2QBKPSbRH5WHWLhqGj6pSfU9AQSf7dy4wK4n1hgVUQjYAt",
+    "token_address": {
+        "index": 7260,  
+        "subindex": 0
+    },
+    "unbonding_period": 86400,  
+    "slashing_rate": 1000      
+}

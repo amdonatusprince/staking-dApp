@@ -223,6 +223,7 @@ struct State<S = StateApi> {
 /// Implementation of state
 impl State {
     /// Get user stake info
+    #[allow(dead_code)]
     pub fn get_user_stake(
         &self,
         user: &AccountAddress
