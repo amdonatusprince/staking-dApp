@@ -165,6 +165,7 @@ const StateProvider = ({ children }: State) => {
     try {
       setLoadingProtocolStats(true);
       if (contract) {
+        console.log("Contract:", contract);
         const contract_schema = await rpc?.getEmbeddedSchema(
           ModuleReference.fromHexString(MODULE_REF)
         );
@@ -181,7 +182,6 @@ const StateProvider = ({ children }: State) => {
         if (!result?.returnValue) {
           throw new Error("No return value from contract");
         }
-
         const buffer = Buffer.from(result.returnValue.buffer);
         const name = ContractName?.fromString(CONTRACT_NAME);
         const entry_point = EntrypointName?.fromString(receiveName);

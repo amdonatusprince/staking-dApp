@@ -132,25 +132,25 @@ pub struct SupportsPermitQueryParams {
 #[derive(Serialize, SchemaType)]
 pub struct ViewResult {
     /// Paused state for stopping relevant contract operations.
-    paused: bool,
+    pub paused: bool,
 
     /// The admin role of concordium liquid staking smart contract.
-    admin: AccountAddress,
+    pub admin: AccountAddress,
 
     /// Total amount of staked tokens.
-    total_staked: u64,
+    pub total_staked: u64,
 
     /// The Apr.
-    apr: u64,
+    pub apr: u64,
 
     /// Address of the EUROe token contract.
-    token_address: ContractAddress,
+    pub token_address: ContractAddress,
 
     /// The total number of participants
-    total_participants: u64,
+    pub total_participants: u64,
 
     /// Track total rewards paid to users
-    total_rewards_paid: u64,
+    pub total_rewards_paid: u64,
 }
 
 /// Information about a stake.
@@ -1010,7 +1010,7 @@ fn contract_supports_permit<S: HasStateApi>(
     Ok(result)
 }
 
-/// Function to retrieve contract state
+/// View function to get contract state
 #[receive(
     contract = "concordium_staking",
     name = "view",
@@ -1021,15 +1021,20 @@ fn contract_view(
     host: &Host<State>
 ) -> ContractResult<ViewResult> {
     let state = host.state();
+    
+    // Convert TokenAmountU64 to u64 and ensure proper serialization
+    let total_staked = state.total_staked.0;
+    let total_rewards = state.total_rewards_paid.0;
+    
     Ok(ViewResult {
         paused: state.paused,
         admin: state.admin,
-        total_staked: state.total_staked.0,
+        total_staked,  // Using the unwrapped u64 value
         apr: state.apr,
         token_address: state.token_address,
         total_participants: state.total_participants,
-        total_rewards_paid: state.total_rewards_paid.0,
-    }) // Return success
+        total_rewards_paid: total_rewards,  // Using the unwrapped u64 value
+    })
 }
 
 /// Function to retrieve specific user stake
