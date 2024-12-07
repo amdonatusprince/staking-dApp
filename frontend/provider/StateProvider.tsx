@@ -26,11 +26,10 @@ interface UnbondingInfo {
 
 interface StakerInfo {
   amount: string;
+  pending_rewards: string;
   slashed: boolean;
   timestamp: bigint;
-  unbonding: any[];
-  pending_rewards?: string;
-  last_reward_timestamp?: bigint;
+  unbonding: UnbondingInfo[];
 }
 
 interface Context {
@@ -59,6 +58,7 @@ interface Context {
 const StateContext = createContext<Context>({
   stakerInfo: {
     amount: "",
+    pending_rewards: "",
     slashed: false,
     timestamp: BigInt(0),
     unbonding: [],
@@ -122,39 +122,47 @@ const StateProvider = ({ children }: State) => {
         );
 
         const result = await rpc?.invokeContract({
-          contract: contract && ContractAddress?.create(contract?.index, 0),
-          method:
-            contract &&
-            ReceiveName?.create(
-              contract?.name,
-              EntrypointName?.fromString(receiveName)
-            ),
+          contract: ContractAddress?.create(contract.index, 0),
+          method: ReceiveName.create(
+            contract?.name,
+            EntrypointName?.fromString(receiveName)
+          ),
           energy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
           invoker: AccountAddress?.fromJSON(account),
           parameter: serializedParameter,
         });
+
+        if (!result?.returnValue) {
+          throw new Error("No return value from contract");
+        }
+
         const buffer = Buffer.from(result.returnValue?.buffer as Uint8Array);
-        const newschema = Buffer?.from(contract_schema).buffer;
-
-        const name = ContractName?.fromString(CONTRACT_NAME);
-        const entry_point = EntrypointName?.fromString(receiveName);
-
         const values = await deserializeReceiveReturnValue(
           buffer,
           contract_schema,
-          name,
-          entry_point,
+          ContractName?.fromString(CONTRACT_NAME),
+          EntrypointName?.fromString(receiveName),
           SchemaVersion?.V1
         );
-        console.log("Received values:", values);
+
+        const transformedStakerInfo: StakerInfo = {
+          amount: values.amount.toString(),
+          pending_rewards: values.pending_rewards.toString(),
+          slashed: values.slashed,
+          timestamp: BigInt(values.timestamp),
+          unbonding: values.unbonding.map((u: any) => ({
+            amount: u.amount.toString(),
+            unlock_time: u.unlock_time.toString()
+          }))
+        };
+
+        setStakerInfo(transformedStakerInfo);
         setLoadingUserStakeInfo(false);
-        setStakerInfo(values);
         toast.success("User Stake Information fetched successfully");
-        // return values as string;
       }
     } catch (err) {
-      setLoadingUserStakeInfo(false);
       console.error("Error fetching user stake information:", err);
+      setLoadingUserStakeInfo(false);
       toast.error("Error fetching user stake information");
     }
   };
@@ -165,7 +173,6 @@ const StateProvider = ({ children }: State) => {
     try {
       setLoadingProtocolStats(true);
       if (contract) {
-        console.log("Contract:", contract);
         const contract_schema = await rpc?.getEmbeddedSchema(
           ModuleReference.fromHexString(MODULE_REF)
         );
@@ -196,12 +203,11 @@ const StateProvider = ({ children }: State) => {
 
         const transformedState = {
           active_stakers: values.total_participants,
-          stakers_length: values.total_participants,
           total_rewards_paid: values.total_rewards_paid.toString(),
           total_staked: values.total_staked.toString(),
         };
 
-        console.log("Contract state:", transformedState);
+        // console.log("Contract state:", transformedState);
         setStakeState(transformedState);
         setLoadingProtocolStats(false);
         toast.success("Protocol statistics fetched successfully");
@@ -250,6 +256,7 @@ const StateProvider = ({ children }: State) => {
         SchemaVersion.V1
       );
 
+      console.log(values)
       const reward = values?.toString() || "0";
       setEarnedRewards(reward);
       return reward;

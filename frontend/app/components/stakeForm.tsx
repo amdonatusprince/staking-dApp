@@ -45,7 +45,7 @@ const StakeForm = () => {
         },
         to: {
           type: "Contract",
-          content: [ContractAddress.create(10386), "stake"],
+          content: [ContractAddress.create(contract.index), "stake"],
         },
         amount: BigInt(amount * MICRO_CCD),
         data: "0000",

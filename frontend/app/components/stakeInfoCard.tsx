@@ -241,7 +241,7 @@ const StakeInfoCard = () => {
               <p className="text-gray-600 font-medium">Accumulated Reward</p>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-2xl font-bold text-gray-800">{`${earnedRewards} EUROe`}</p>
+              <p className="text-2xl font-bold text-gray-800">{`${stakerInfo?.pending_rewards} EUROe`}</p>
                             {/* <p className="text-2xl font-bold text-gray-800">{`${
                 Number(stakerInfo?.pending_rewards || 0) / MICRO_CCD
               } EUROe`}</p> */}

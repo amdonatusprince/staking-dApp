@@ -86,7 +86,6 @@ const WalletProvider = ({ children, walletProps }: WalletProviders) => {
   ) {
     console.debug(`Refreshing info for contract ${index.toString()}`);
     const info = await rpc?.getInstanceInfo(ContractAddress.create(index, 0));
-    console.log("Contract fecthed");
     if (!info) {
       throw new Error(`contract ${index} not found`);
     }

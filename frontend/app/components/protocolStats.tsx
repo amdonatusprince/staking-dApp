@@ -12,69 +12,11 @@ const ProtocolStats = () => {
   const { contract, rpc } = useWallet();
   const { loadingProtocolStats, viewState, stakeState } = useStateProvider();
 
-  // const viewState = async (rpc: ConcordiumGRPCClient, contract: any) => {
-  //   const receiveName = "view_state";
-
-  //   try {
-  //     setLoadingProtocolStats(true);
-  //     if (contract) {
-  //       console.log(contract);
-  //       const contract_schema = await rpc?.getEmbeddedSchema(
-  //         contract?.sourceModule
-  //       );
-
-  //       const result = await rpc?.invokeContract({
-  //         contract: contract && ContractAddress?.create(contract?.index, 0),
-  //         method:
-  //           contract &&
-  //           ReceiveName?.create(
-  //             contract?.name,
-  //             EntrypointName?.fromString(receiveName)
-  //           ),
-  //         energy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
-  //         // invoker: AccountAddress?.fromJSON(account),
-  //         // parameter: serializedParameter,
-  //       });
-  //       console.log(result.returnValue);
-  //       const buffer = Buffer.from(result.returnValue?.buffer as Uint8Array);
-  //       const newschema = Buffer?.from(contract_schema).buffer;
-
-  //       console.log(newschema);
-  //       const name = ContractName?.fromString(CONTRACT_NAME);
-  //       const entry_point = EntrypointName?.fromString(receiveName);
-  //       console.log(contract_schema);
-
-  //       const values = await deserializeReceiveReturnValue(
-  //         buffer,
-  //         contract_schema,
-  //         name,
-  //         entry_point,
-  //         SchemaVersion?.V1
-  //       );
-
-  //       console.log(values);
-
-  //       setStakeState(values);
-
-  //       setLoadingProtocolStats(false);
-
-  //       toast.success("Protocol statistics fetched successfully");
-
-  //       return values as string;
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching products:", err);
-  //     setLoadingProtocolStats(false);
-  //     toast.error("Error fetching protocol statistics");
-  //   }
-  // };
-
   useEffect(() => {
     viewState(rpc as ConcordiumGRPCClient, contract);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contract, rpc]);
 
-  // console.log(stakeState);
   return (
     <Card className="w-full p-8">
       <h2 className="text-2xl font-semibold text-gray-700 mb-6 flex items-center">
@@ -199,7 +141,7 @@ const ProtocolStats = () => {
           )}
           <div className="mt-2 flex items-center text-sm text-gray-500">
             <span className="font-medium">
-              {Number(stakeState.total_participants) || "0"}
+              {Number(stakeState.active_stakers) || "0"}
             </span>
             <span className="ml-1">active stakers earning rewards</span>
           </div>

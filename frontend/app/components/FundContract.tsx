@@ -1,23 +1,27 @@
 import { MAX_CONTRACT_EXECUTION_ENERGY, MICRO_CCD } from "@/config";
 import { useWallet } from "@/provider/WalletProvider";
+import { useStateProvider } from "@/provider/StateProvider";
 import { moduleSchemaFromBase64 } from "@concordium/react-components";
 import {
   AccountTransactionType,
   CcdAmount,
   ContractAddress,
   Energy,
+  ModuleReference,
   EntrypointName,
   ReceiveName,
 } from "@concordium/web-sdk";
 import React, { useState } from "react";
 import toast from "react-hot-toast";
 import { BeatLoader } from "react-spinners";
+import { MODULE_REF } from "@/config";
 
 const FundContract = () => {
   const [fundAmount, setFundAmount] = useState("");
   const [loadingFundContract, setLoadingFundContract] = useState(false);
 
   const { contract, account, connection, rpc } = useWallet();
+  const { viewState } = useStateProvider();
 
   const fundContract = async (amount: number) => {
     try {
@@ -26,7 +30,9 @@ const FundContract = () => {
         throw new Error("Wallet not connected");
       }
 
-      const contract_schema = await rpc.getEmbeddedSchema(contract.sourceModule);
+      const contract_schema = await rpc?.getEmbeddedSchema(
+        ModuleReference.fromHexString(MODULE_REF)
+      );
 
       const parameter = (amount * MICRO_CCD).toString();
 
@@ -34,27 +40,33 @@ const FundContract = () => {
         account,
         AccountTransactionType.Update,
         {
-          amount: CcdAmount.zero(),
-          address: ContractAddress.create(contract.index, 0),
+          address: ContractAddress.create(contract.index),
           receiveName: ReceiveName.create(
             contract.name,
             EntrypointName.fromString("fundRewards")
           ),
+          amount: CcdAmount.zero(),
           maxContractExecutionEnergy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
         },
         {
+          parameters: parameter,
           schema: moduleSchemaFromBase64(btoa(
             new Uint8Array(contract_schema).reduce(
               (data, byte) => data + String.fromCharCode(byte),
               ""
             )
-          )),
-          parameters: parameter
+          ))
         }
       );
 
       toast.success(`Successfully funded ${amount} EUROe to the rewards pool`);
       setFundAmount("");
+
+      // Update state after transaction
+      setTimeout(async () => {
+        await viewState(rpc, contract);
+      }, 10000);
+
       setLoadingFundContract(false);
       return transaction;
     } catch (error: any) {
@@ -62,8 +74,6 @@ const FundContract = () => {
         toast.error("Only admin can fund rewards");
       } else if (error.message?.includes("InsufficientFunds")) {
         toast.error("Insufficient EUROe balance");
-      } else if (error.message?.includes("InvokeContractError")) {
-        toast.error("Error invoking EUROe token contract");
       } else {
         toast.error("Error funding rewards pool");
         console.error(error);
