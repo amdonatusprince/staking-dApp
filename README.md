@@ -102,4 +102,3 @@ npm run dev
 - **Concordium Website:** https://www.concordium.com/
 - **Concordium Support:** https://support.concordium.software/
 - **Discord:** https://discord.com/invite/GpKGE2hCFx
-- 
