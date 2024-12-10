@@ -11,6 +11,7 @@ import {
   EntrypointName,
   ReceiveName,
   AccountAddress,
+  TransactionHash,
 } from "@concordium/web-sdk";
 import Image from "next/image";
 import React, { useState } from "react";
@@ -67,7 +68,13 @@ const StakeForm = () => {
         EUROe.createTransferParameterWebWallet(transferParameter)
       );
 
-      toast.success(`Successfully Staked ${amount} EUROe`);
+      if (transaction && rpc) {
+        const result = await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction));
+        if (result) {
+          toast.success(`Successfully Staked ${amount} EUROe`);
+        }
+      }
+
       setStakeAmount("");
 
       setTimeout(async () => {
@@ -119,13 +126,18 @@ const StakeForm = () => {
         }
       );
 
-      toast.success("Unstake successfully initiated");
-      setStakeAmount("");
+      if (transaction && rpc) {
+        const result = await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction));
+        if (result) {
+          toast.success("Unstake successfully initiated");
+          setStakeAmount("");
 
-      setTimeout(async () => {
-        await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
-        await viewState(rpc as ConcordiumGRPCClient, contract);
-      }, 10000);
+          setTimeout(async () => {
+            await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
+            await viewState(rpc as ConcordiumGRPCClient, contract);
+          }, 10000);
+        }
+      }
 
       setStakeLoading(false);
       return transaction;

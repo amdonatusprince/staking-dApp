@@ -151,6 +151,9 @@ pub struct ViewResult {
 
     /// Track total rewards paid to users
     pub total_rewards_paid: u64,
+
+    /// Track available rewards
+    pub rewards_pool: u64,
 }
 
 /// Information about a stake.
@@ -340,6 +343,9 @@ pub enum Error {
 
     /// Insufficient rewards pool
     InsufficientRewardsPool,
+
+    /// No rewards available to claim
+    NoRewardsAvailable,
 }
 
 /// Mapping the logging errors to Error.
@@ -624,7 +630,7 @@ fn contract_permit(
 fn contract_stake(
     ctx: &ReceiveContext,
     host: &mut Host<State>,
-    _logger: &mut Logger
+    logger: &mut Logger
 ) -> ContractResult<()> {
     let state = host.state_mut();
     // Check if sender is the token contract
@@ -638,7 +644,6 @@ fn contract_stake(
         AdditionalData
     > = ctx.parameter_cursor().get()?;
 
-    // Verify token ID is EUROe
     ensure!(params.token_id == TOKEN_ID_EUROE, Error::InvalidResponse);
 
     let sender_address = only_account(&params.from)?;
@@ -648,6 +653,8 @@ fn contract_stake(
     ensure!(!state.paused, Error::ContractPaused);
     ensure!(amount.gt(&TokenAmountU64(0)), Error::InvalidStakeAmount);
 
+    // Get or create stake info
+    let is_new_staker = state.stakes.get(&sender_address).is_none();
     let mut sender_stake = state.stakes
         .entry(sender_address)
         .or_insert_with(|| StakeInfo {
@@ -658,51 +665,32 @@ fn contract_stake(
             pending_rewards: 0,
         });
 
-    // Ensure stake isn't slashed
-    ensure!(!sender_stake.slashed, Error::AlreadySlashed);
-
-    state.total_staked += amount;
-    if sender_stake.amount == 0 {
-        state.total_participants += 1;
+    // Calculate pending rewards before updating stake
+    if sender_stake.amount > 0 {
+        let new_rewards = calculate_reward(
+            sender_stake.amount,
+            sender_stake.timestamp,
+            unix_timestamp,
+            state.apr
+        );
+        sender_stake.pending_rewards = sender_stake.pending_rewards.saturating_add(new_rewards);
     }
 
-    let user_stake_info = sender_stake.clone();
-    sender_stake.amount += amount.0;
+    // Update stake amount and timestamp
+    sender_stake.amount = sender_stake.amount.saturating_add(amount.0);
     sender_stake.timestamp = unix_timestamp;
 
-    let apr = state.apr;
-    drop(sender_stake);
-
-    // If previously staked, calculate and transfer rewards
-    if user_stake_info.amount > 0 {
-        let earned_rewards = TokenAmountU64(
-            calculate_reward(
-                user_stake_info.amount,
-                user_stake_info.timestamp,
-                unix_timestamp,
-                apr
-            ).into()
-        );
-
-        // Only transfer if rewards > 0
-        if earned_rewards.gt(&TokenAmountU64(0)) {
-            transfer_euroe_token(
-                host,
-                Address::Contract(ctx.self_address()),
-                Receiver::Account(sender_address),
-                earned_rewards,
-                true
-            )?;
-        }
+    // Update total staked and participants
+    state.total_staked = TokenAmountU64(state.total_staked.0.saturating_add(amount.0));
+    if is_new_staker {
+        state.total_participants = state.total_participants.saturating_add(1);
     }
 
-    _logger.log(
-        &Event::Staked(StakeEvent {
-            user: sender_address,
-            stake_amount: amount,
-            staked_timestamp: unix_timestamp,
-        })
-    )?;
+    logger.log(&Event::Staked(StakeEvent {
+        user: sender_address,
+        stake_amount: amount,
+        staked_timestamp: unix_timestamp,
+    }))?;
 
     Ok(())
 }
@@ -1044,6 +1032,7 @@ fn contract_view(
         token_address: state.token_address,
         total_participants: state.total_participants,
         total_rewards_paid: state.total_rewards_paid.0,
+        rewards_pool: state.rewards_pool.0,
     })
 }
 
@@ -1063,14 +1052,29 @@ fn contract_get_stake_info(
     let state = host.state();
     
     // Return default StakeInfo if no stake exists
-    let stake_info = state.stakes.get(&user).map(|s| StakeInfo {
-        amount: s.amount,  // Use u64 directly
-        timestamp: s.timestamp,
-        unbonding: s.unbonding.clone(),
-        slashed: s.slashed,
-        pending_rewards: s.pending_rewards,
+    let stake_info = state.stakes.get(&user).map(|s| {
+        let current_time = get_current_timestamp(ctx);
+        
+        // Calculate new rewards since last update
+        let additional_rewards = calculate_reward(
+            s.amount,
+            s.timestamp,
+            current_time,
+            state.apr
+        );
+
+        // Add new rewards to existing pending rewards
+        let total_pending_rewards = s.pending_rewards.saturating_add(additional_rewards);
+
+        StakeInfo {
+            amount: s.amount,
+            timestamp: s.timestamp,
+            unbonding: s.unbonding.clone(),
+            slashed: s.slashed,
+            pending_rewards: total_pending_rewards,  // Use total rewards including new calculations
+        }
     }).unwrap_or(StakeInfo {
-        amount: 0,  // Default to 0
+        amount: 0,
         timestamp: get_current_timestamp(ctx),
         unbonding: Vec::new(),
         slashed: false,
@@ -1183,9 +1187,10 @@ fn unstake_helper(
 fn claim_rewards_helper(
     ctx: &ReceiveContext,
     host: &mut Host<State>,
-    _logger: &mut Logger,
+    logger: &mut Logger,
     sender_address: AccountAddress
 ) -> ContractResult<()> {
+    // Calculate rewards and update state
     let earned_rewards = {
         let state = host.state_mut();
         ensure!(!state.paused, Error::ContractPaused);
@@ -1197,36 +1202,42 @@ fn claim_rewards_helper(
         ensure!(!sender_stake.slashed, Error::AlreadySlashed);
 
         // Calculate new rewards
-        let new_rewards = TokenAmountU64(calculate_reward(
+        let current_time = get_current_timestamp(ctx);
+        let new_rewards = calculate_reward(
             sender_stake.amount,
             sender_stake.timestamp,
-            get_current_timestamp(ctx),
+            current_time,
             state.apr
-        ));
+        );
 
-        // Add to pending rewards
-        let total_rewards = TokenAmountU64(sender_stake.pending_rewards + new_rewards.0);
+        // Get total rewards (pending + new)
+        let total_rewards = TokenAmountU64(sender_stake.pending_rewards.saturating_add(new_rewards));
+        ensure!(total_rewards.0 > 0, Error::NoRewardsAvailable);
         ensure!(state.rewards_pool.0 >= total_rewards.0, Error::InsufficientRewardsPool);
 
         // Reset pending rewards and update timestamp
         sender_stake.pending_rewards = 0;
-        sender_stake.timestamp = get_current_timestamp(ctx);
+        sender_stake.timestamp = current_time;
         
-        state.rewards_pool -= total_rewards;
-        state.total_rewards_paid += total_rewards;
+        // Update contract state
+        state.rewards_pool.0 = state.rewards_pool.0.saturating_sub(total_rewards.0);
+        state.total_rewards_paid.0 = state.total_rewards_paid.0.saturating_add(total_rewards.0);
         
         total_rewards
     };
 
-    transfer_euroe_token(
-        host,
-        Address::Contract(ctx.self_address()),
-        Receiver::Account(sender_address),
-        earned_rewards,
-        true
-    )?;
+    // Transfer rewards to user
+    if earned_rewards.0 > 0 {
+        transfer_euroe_token(
+            host,
+            Address::Contract(ctx.self_address()),
+            Receiver::Account(sender_address),
+            earned_rewards,
+            true
+        )?;
+    }
 
-    _logger.log(&Event::Claimed(ClaimEvent {
+    logger.log(&Event::Claimed(ClaimEvent {
         user: sender_address,
         rewards_claimed: earned_rewards,
         claim_timestamp: get_current_timestamp(ctx),
@@ -1249,9 +1260,29 @@ fn get_current_timestamp(ctx: &ReceiveContext) -> u64 {
 }
 
 /// Function to calculate rewards.
-fn calculate_reward(amount: u64, start: u64, end: u64, apr: u64) -> u64 {
-    let seconds_passed = end - start;
-    (((amount * apr * seconds_passed) as u128) / APR_DENOMINATOR) as u64
+fn calculate_reward(
+    staked_amount: u64,
+    last_timestamp: u64,
+    current_timestamp: u64,
+    apr: u64
+) -> u64 {
+    if staked_amount == 0 {
+        return 0;
+    }
+
+    let time_staked = current_timestamp.saturating_sub(last_timestamp);
+    
+    // Use u128 for intermediate calculations to prevent overflow
+    let staked_amount_u128 = staked_amount as u128;
+    
+    // Calculate reward: (staked_amount * apr * time_staked) / (365 * 24 * 60 * 60 * 10000)
+    // The 10000 divisor is because APR is in basis points (1% = 100)
+    staked_amount_u128
+        .saturating_mul(apr as u128)
+        .saturating_mul(time_staked as u128)
+        .saturating_div(365 * 24 * 60 * 60 * 10000)
+        .try_into()
+        .unwrap_or(0)
 }
 
 /// Function to transfer EUROe stablecoin.

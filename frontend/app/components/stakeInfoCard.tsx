@@ -16,6 +16,7 @@ import {
   Energy,
   EntrypointName,
   ReceiveName,
+  TransactionHash,
 } from "@concordium/web-sdk";
 import React, { useEffect, useState } from "react";
 import LoadingPlaceholder from "./LoadingPlaceholder";
@@ -55,24 +56,19 @@ const StakeInfoCard = () => {
           ),
           maxContractExecutionEnergy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
         },
-        {
-          schema: moduleSchemaFromBase64(btoa(
-            new Uint8Array(contract_schema).reduce(
-              (data, byte) => data + String.fromCharCode(byte),
-              ""
-            )
-          )),
-          parameters: {}
-        }
       );
 
-      toast.success("Unstake completed successfully");
-
-      // Refresh staker info and contract state after transaction
-      setTimeout(async () => {
-        await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
-        await viewState(rpc as ConcordiumGRPCClient, contract);
-      }, 10000);
+      if (transaction && rpc) {
+        const result = await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction));
+        if (result) {
+          toast.success("Unstake completed successfully");
+          
+          setTimeout(async () => {
+            await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
+            await viewState(rpc as ConcordiumGRPCClient, contract);
+          }, 10000);
+        }
+      }
 
       setCompleteUnstakeLoading(false);
       return transaction;
@@ -113,23 +109,28 @@ const StakeInfoCard = () => {
           ),
           maxContractExecutionEnergy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
         },
-        {
-          schema: moduleSchemaFromBase64(btoa(
-            new Uint8Array(contract_schema).reduce(
-              (data, byte) => data + String.fromCharCode(byte),
-              ""
-            )
-          )),
-          parameters: {}
-        }
+                // {
+        //   schema: moduleSchemaFromBase64(btoa(
+        //     new Uint8Array(contract_schema).reduce(
+        //       (data, byte) => data + String.fromCharCode(byte),
+        //       ""
+        //     )
+        //   )),
+        //   parameters: {}
+        // }
       );
 
-      toast.success("Reward claimed successfully");
-      
-      setTimeout(async () => {
-        await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
-        await viewState(rpc as ConcordiumGRPCClient, contract);
-      }, 10000);
+      if (transaction && rpc) {
+        const result = await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction));
+        if (result) {
+          toast.success("Reward claimed successfully");
+          
+          setTimeout(async () => {
+            await getStakerInfo(rpc as ConcordiumGRPCClient, account, contract);
+            await viewState(rpc as ConcordiumGRPCClient, contract);
+          }, 10000);
+        }
+      }
 
       setClaimRewardsLoading(false);
       return transaction;
@@ -247,7 +248,7 @@ const StakeInfoCard = () => {
               } EUROe`}</p> */}
               <button
                 onClick={() => {
-                  if (Number(earnedRewards) == 0) {
+                  if (Number(stakerInfo?.pending_rewards) == 0) {
                     toast.error("Rewards must be greater than zero");
                   } else {
                     claimRewards();
@@ -362,7 +363,7 @@ const StakeInfoCard = () => {
                         } font-bold py-2 px-6 rounded-lg transition-colors duration-200`}
                         onClick={() => completeUnstake()}
                       >
-                        {compareTimestamps(currentTime, item.unlock_time)
+                        {compareTimestamps(currentTime, formatTime(item.unlock_time))
                           ? "Concluded"
                           : "Awaiting..."}
                       </p>

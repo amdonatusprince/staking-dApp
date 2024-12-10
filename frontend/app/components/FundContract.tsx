@@ -10,10 +10,13 @@ import {
   ModuleReference,
   EntrypointName,
   ReceiveName,
+  AccountAddress,
+  TransactionHash,
 } from "@concordium/web-sdk";
 import React, { useState } from "react";
 import toast from "react-hot-toast";
 import { BeatLoader } from "react-spinners";
+import * as EUROe from "@/utils/module_euroe_stablecoin";
 import { MODULE_REF } from "@/config";
 
 const FundContract = () => {
@@ -30,13 +33,44 @@ const FundContract = () => {
         throw new Error("Wallet not connected");
       }
 
-      const contract_schema = await rpc?.getEmbeddedSchema(
-        ModuleReference.fromHexString(MODULE_REF)
+      // Step 1: Transfer EUROe to the contract
+      const transferParameter = [{
+        from: {
+          type: "Account",
+          content: AccountAddress.fromBase58(account),
+        },
+        to: {
+          type: "Contract",
+          content: [ContractAddress.create(contract.index), "onReceivingCIS2"],
+        },
+        amount: BigInt(amount * MICRO_CCD),
+        data: "0000",
+        token_id: "",
+      }] as EUROe.TransferParameter;
+
+      const transaction1 = await connection.signAndSendTransaction(
+        account,
+        AccountTransactionType.Update,
+        {
+          address: ContractAddress.create(7260),
+          receiveName: ReceiveName.create(
+            EUROe.contractName,
+            EntrypointName.fromString("transfer")
+          ),
+          amount: CcdAmount.zero(),
+          maxContractExecutionEnergy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
+        },
+        EUROe.createTransferParameterWebWallet(transferParameter)
       );
 
-      const parameter = (amount * MICRO_CCD).toString();
+      if (transaction1 && rpc) {
+        await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction1));
+      }
 
-      const transaction = await connection.signAndSendTransaction(
+      // Step 2: Update contract state
+      const contract_schema = await rpc.getEmbeddedSchema(contract.sourceModule);
+      
+      const transaction2 = await connection.signAndSendTransaction(
         account,
         AccountTransactionType.Update,
         {
@@ -49,7 +83,7 @@ const FundContract = () => {
           maxContractExecutionEnergy: Energy.create(MAX_CONTRACT_EXECUTION_ENERGY),
         },
         {
-          parameters: parameter,
+          parameters: (amount * MICRO_CCD).toString(),
           schema: moduleSchemaFromBase64(btoa(
             new Uint8Array(contract_schema).reduce(
               (data, byte) => data + String.fromCharCode(byte),
@@ -59,16 +93,20 @@ const FundContract = () => {
         }
       );
 
-      toast.success(`Successfully funded ${amount} EUROe to the rewards pool`);
-      setFundAmount("");
+      if (transaction2 && rpc) {
+        const result = await rpc.waitForTransactionFinalization(TransactionHash.fromHexString(transaction2));
+        if (result) {
+          toast.success(`Successfully funded ${amount} EUROe to the rewards pool`);
+          setFundAmount("");
 
-      // Update state after transaction
-      setTimeout(async () => {
-        await viewState(rpc, contract);
-      }, 10000);
+          setTimeout(async () => {
+            await viewState(rpc, contract);
+          }, 10000);
+        }
+      }
 
       setLoadingFundContract(false);
-      return transaction;
+      return transaction2;
     } catch (error: any) {
       if (error.message?.includes("OnlyAdmin")) {
         toast.error("Only admin can fund rewards");

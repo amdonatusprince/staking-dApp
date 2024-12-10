@@ -2,3 +2,5 @@
 **/*.rs.bk
 Cargo.lock
 /dist
+wallet.export
+init_params.json
