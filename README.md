@@ -95,7 +95,7 @@ npm run dev
 ## Useful Resources
 
 - **Demo Website**: https://concordium-staking-dapp.vercel.app/ 
-- **Technical Guide**: Detailed documentation covering contract architecture, functions, and implementation details can be found [here](https://donatusprince.medium.com/a-developers-guide-to-building-a-fullstack-staking-dapp-on-the-concordium-blockchain-e5b67d5530ea)
+- **Technical Guide**: Detailed documentation covering contract architecture, functions, and implementation details can be found [here](https://docs.google.com/document/d/1mHLZS9ARk23irieS1lyk2tIizlAh_ZK7Q0Prt-VSKZo/edit?usp=sharing)
 - **Concordium Guide**: Step-by-step instructions for installing the concordium client in the [documentation](https://developer.concordium.software/en/mainnet/smart-contracts/guides/setup-tools.html)
 - **Frontend Interface**: [Simple UI for interacting with the staking contract](https://concordium-staking-dapp.vercel.app/)
 - **Concordium Documentation:** https://developer.concordium.software/
