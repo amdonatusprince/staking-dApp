@@ -1275,12 +1275,12 @@ fn calculate_reward(
     // Use u128 for intermediate calculations to prevent overflow
     let staked_amount_u128 = staked_amount as u128;
     
-    // Calculate reward: (staked_amount * apr * time_staked) / (365 * 24 * 60 * 60 * 10000)
-    // The 10000 divisor is because APR is in basis points (1% = 100)
+    // Calculate reward: (staked_amount * apr * time_staked) / (APR_DENOMINATOR * seconds_per_year)
+    // APR is expressed as a percentage with 8 decimal places (e.g., 5% = 500_000_000)
     staked_amount_u128
         .saturating_mul(apr as u128)
         .saturating_mul(time_staked as u128)
-        .saturating_div(365 * 24 * 60 * 60 * 10000)
+        .saturating_div(APR_DENOMINATOR * (365 * 24 * 60 * 60))
         .try_into()
         .unwrap_or(0)
 }
@@ -1319,7 +1319,6 @@ fn transfer_euroe_token(
 
     Ok(())
 }
-
 /// New function to fund rewards pool
 #[receive(
     contract = "concordium_staking",
@@ -1438,8 +1437,9 @@ fn contract_slash(
 
     ensure!(!stake_info.slashed, Error::AlreadySlashed);
 
-    // Mark as slashed
+    // Mark as slashed and reset pending rewards
     stake_info.slashed = true;
+    stake_info.pending_rewards = 0;
 
     Ok(())
 }

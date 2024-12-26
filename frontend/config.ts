@@ -7,11 +7,6 @@ import {
 
 export const DEFAULT_CONTRACT_INDEX = BigInt(10416);
 export const MODULE_REF = "04ee67dbdc38f2b86237ccbc1e2c0d139ad9c13324a0c02d3aa9eb0c627649ec"
-
-// export const DEFAULT_CONTRACT_INDEX = BigInt(10404);
-// export const MODULE_REF = "347cd8d67b9accf8a21edd1827295e3e0544ada05419461d2063e61cb6b8a901"
-
-
 export const MAX_CONTRACT_EXECUTION_ENERGY = BigInt(30000);
 
 export const CONTRACT_NAME = "concordium_staking";
