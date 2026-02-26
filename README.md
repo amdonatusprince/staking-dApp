@@ -68,29 +68,7 @@ Built with React and Next.js, providing:
 
 - Concordium Browser Wallet
 - EUROe tokens
-- Modern web browser
-
-### Installation
-
-1. Clone the repository
-```bash
-git clone https://github.com/your-username/concordium-staking.git
-cd concordium-staking
-```
-2. Install dependencies
-```bash
-// Install contract dependencies
-cd contract
-cargo build
-
-// Install frontend dependencies
-cd frontend
-npm install
-```
-3.  Run development server
-```bash
-npm run dev
-```
+- Modern web 
 
 ## Useful Resources
 
