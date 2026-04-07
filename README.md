@@ -36,8 +36,6 @@ Built with React and Next.js, providing:
 - User-friendly staking and unstaking interface
 - Detailed staking position tracking
 
-## Contract Functions
-
 ### Core Functions
 
 1. **Staking**
