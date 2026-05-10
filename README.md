@@ -60,8 +60,6 @@ Built with React and Next.js, providing:
 - Emergency functions for security
 - Contract upgrades
 
-## Getting Started
-
 ### Prerequisites
 
 - Concordium Browser Wallet
