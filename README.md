@@ -1,4 +1,4 @@
-# Concordium Staking Protocol
+# Concordium's Staking Protocol
 
 A CIS-20 supported staking protocol built on the Concordium blockchain enables users to stake EUROe tokens and earn daily rewards. The protocol provides a secure, transparent, and efficient way to participate in staking while maintaining full control over assets.
 
